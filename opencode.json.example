@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "name": "aap-opencode-plugin",
+  "plugin": ["./dist/index.js"],
+  "tools": {
+    "aap_configure": true,
+    "aap_list_job_templates": true,
+    "aap_get_job_template": true,
+    "aap_launch_job": true,
+    "aap_get_job_status": true,
+    "aap_get_job_output": true,
+    "aap_cancel_job": true,
+    "aap_list_inventories": true,
+    "aap_list_hosts": true,
+    "aap_list_projects": true,
+    "aap_sync_project": true,
+    "aap_list_organizations": true,
+    "aap_generate_playbook": true,
+    "aap_generate_role": true,
+    "aap_generate_collection": true,
+    "aap_create_oauth_token": true
+  }
+}
