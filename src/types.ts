@@ -287,6 +287,112 @@ export interface FilterOptions {
   [key: string]: string | number | boolean | string[] | { operator: FilterOperator; value: unknown };
 }
 
+// AAP 2.7 — Gateway v1 resource types
+
+export interface Team {
+  id: number;
+  name: string;
+  description: string;
+  organization: number;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  is_superuser: boolean;
+  is_system_auditor: boolean;
+}
+
+export interface RoleDefinition {
+  id: number;
+  name: string;
+  description: string;
+  content_type: string | null;
+  permissions: string[];
+  managed: boolean;
+}
+
+export interface RoleTeamAssignment {
+  id: number;
+  team: number;
+  role_definition: number;
+  object_id: number | null;
+  content_type: string | null;
+}
+
+export interface RoleUserAssignment {
+  id: number;
+  user: number;
+  role_definition: number;
+  object_id: number | null;
+  content_type: string | null;
+}
+
+export interface PlatformStatus {
+  status: string;
+  version: string;
+  install_uuid?: string;
+  active_node?: string;
+  error?: string;
+}
+
+export interface ActivityStreamEntry {
+  id: number;
+  timestamp: string;
+  operation: 'create' | 'update' | 'delete' | 'associate' | 'disassociate' | string;
+  object1: string;
+  object2: string;
+  object_type: string;
+  object_id: number;
+  actor?: {
+    id: number;
+    username: string;
+  } | null;
+  changes?: Record<string, unknown>;
+}
+
+// AAP 2.7 — Event-Driven Ansible types
+
+export interface EDARulebook {
+  id: number;
+  name: string;
+  description: string;
+  project: number;
+  rule_count: number;
+  fire_count: number;
+  created_at: string;
+  modified_at: string;
+}
+
+export interface EDAActivation {
+  id: number;
+  name: string;
+  description: string;
+  status: 'running' | 'stopped' | 'failed' | 'completed' | 'starting' | 'unresponsive' | string;
+  rulebook: number;
+  decision_environment: number;
+  project: number | null;
+  enabled: boolean;
+  restart_policy: 'on-failure' | 'always' | 'never' | string;
+  restart_count?: number;
+  created_at: string;
+  modified_at: string;
+}
+
+export interface CreateEDAActivationRequest {
+  name: string;
+  description?: string;
+  rulebook: number;
+  decision_environment: number;
+  project?: number;
+  enabled?: boolean;
+  restart_policy?: 'on-failure' | 'always' | 'never';
+  extra_var?: string;
+}
+
 // Content generation types
 export interface PlaybookTask {
   name: string;

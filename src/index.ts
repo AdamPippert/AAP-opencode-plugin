@@ -360,6 +360,183 @@ const AAPPlugin = (_ctx: PluginContext): { tool: Record<string, unknown> } => {
           return `OAuth2 token created. Token: ${token.token}\nExpires: ${token.expires}`;
         },
       }),
+
+      // AAP 2.7 — Platform status
+      aap_get_platform_status: tool({
+        description: 'Get the overall health and version status of the AAP platform (gateway v1)',
+        args: {},
+        async execute() {
+          const client = getClient();
+          const status = await client.getPlatformStatus();
+          const lines = [
+            `Status: ${status.status}`,
+            `Version: ${status.version}`,
+          ];
+          if (status.active_node) lines.push(`Active node: ${status.active_node}`);
+          if (status.install_uuid) lines.push(`Install UUID: ${status.install_uuid}`);
+          if (status.error) lines.push(`Error: ${status.error}`);
+          return lines.join('\n');
+        },
+      }),
+
+      // AAP 2.7 — Teams
+      aap_list_teams: tool({
+        description: 'List teams from the AAP platform gateway (AAP 2.7+)',
+        args: {
+          search: tool.schema.optional(tool.schema.string()).describe('Search term to filter teams'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const response = await client.getTeams(undefined, args.search as string | undefined);
+          const teams = response.results.map(t => `- ${t.name} (ID: ${t.id}): ${t.description ?? 'No description'} [org: ${t.organization}]`).join('\n');
+          return `Found ${response.count} teams:\n${teams}`;
+        },
+      }),
+
+      // AAP 2.7 — Users
+      aap_list_users: tool({
+        description: 'List users from the AAP platform gateway (AAP 2.7+)',
+        args: {
+          search: tool.schema.optional(tool.schema.string()).describe('Search term to filter users'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const response = await client.getUsers(undefined, args.search as string | undefined);
+          const users = response.results.map(u => `- ${u.username} (ID: ${u.id}): ${u.first_name} ${u.last_name} <${u.email}> superuser=${u.is_superuser}`).join('\n');
+          return `Found ${response.count} users:\n${users}`;
+        },
+      }),
+
+      // AAP 2.7 — RBAC
+      aap_list_role_definitions: tool({
+        description: 'List role definitions from the AAP platform gateway (AAP 2.7+)',
+        args: {
+          search: tool.schema.optional(tool.schema.string()).describe('Search term to filter role definitions'),
+          contentType: tool.schema.optional(tool.schema.string()).describe('Filter by content type (e.g. aap.organization)'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const filters = args.contentType ? { content_type__model: args.contentType as string } : undefined;
+          const response = await client.getRoleDefinitions(filters, args.search as string | undefined);
+          const roles = response.results.map(r => `- ${r.name} (ID: ${r.id}): ${r.description} [managed=${r.managed}, type=${r.content_type ?? 'system'}]`).join('\n');
+          return `Found ${response.count} role definitions:\n${roles}`;
+        },
+      }),
+
+      aap_list_role_assignments: tool({
+        description: 'List role assignments for a user or team from the AAP platform gateway (AAP 2.7+)',
+        args: {
+          userId: tool.schema.optional(tool.schema.number()).describe('Filter assignments by user ID'),
+          teamId: tool.schema.optional(tool.schema.number()).describe('Filter assignments by team ID'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const lines: string[] = [];
+
+          if (args.userId) {
+            const response = await client.getRoleUserAssignments({ user: args.userId as number });
+            lines.push(`User ${String(args.userId)} has ${response.count} role assignment(s):`);
+            response.results.forEach(a => {
+              lines.push(`  - role_definition=${a.role_definition} on ${a.content_type ?? 'system'} id=${a.object_id ?? '*'}`);
+            });
+          }
+
+          if (args.teamId) {
+            const response = await client.getRoleTeamAssignments({ team: args.teamId as number });
+            lines.push(`Team ${String(args.teamId)} has ${response.count} role assignment(s):`);
+            response.results.forEach(a => {
+              lines.push(`  - role_definition=${a.role_definition} on ${a.content_type ?? 'system'} id=${a.object_id ?? '*'}`);
+            });
+          }
+
+          if (!args.userId && !args.teamId) {
+            const [users, teams] = await Promise.all([
+              client.getRoleUserAssignments(),
+              client.getRoleTeamAssignments(),
+            ]);
+            lines.push(`Total user role assignments: ${users.count}`);
+            lines.push(`Total team role assignments: ${teams.count}`);
+          }
+
+          return lines.join('\n');
+        },
+      }),
+
+      // AAP 2.7 — Activity stream
+      aap_get_activity_stream: tool({
+        description: 'Get the platform activity stream showing recent create/update/delete operations (AAP 2.7+)',
+        args: {
+          limit: tool.schema.optional(tool.schema.number()).describe('Maximum number of entries to return (default 20)'),
+          objectType: tool.schema.optional(tool.schema.string()).describe('Filter by object type (e.g. aap.organization)'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const filters: Record<string, unknown> = {};
+          if (args.limit) filters.page_size = args.limit as number;
+          if (args.objectType) filters.object_type = args.objectType as string;
+          const response = await client.getActivityStream(filters as Parameters<typeof client.getActivityStream>[0], '-timestamp');
+          const entries = response.results.map(e => {
+            const actor = e.actor ? e.actor.username : 'system';
+            return `- [${e.timestamp}] ${e.operation} ${e.object_type}#${e.object_id} by ${actor}`;
+          }).join('\n');
+          return `Activity stream (${response.count} total, showing ${response.results.length}):\n${entries}`;
+        },
+      }),
+
+      // AAP 2.7 — Event-Driven Ansible
+      aap_list_eda_rulebooks: tool({
+        description: 'List Event-Driven Ansible rulebooks (AAP 2.7+)',
+        args: {
+          search: tool.schema.optional(tool.schema.string()).describe('Search term to filter rulebooks'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const response = await client.getEDARulebooks(undefined, args.search as string | undefined);
+          const books = response.results.map(r => `- ${r.name} (ID: ${r.id}): ${r.description ?? 'No description'} [rules=${r.rule_count}, fires=${r.fire_count}]`).join('\n');
+          return `Found ${response.count} EDA rulebooks:\n${books}`;
+        },
+      }),
+
+      aap_list_eda_activations: tool({
+        description: 'List Event-Driven Ansible activations (AAP 2.7+)',
+        args: {
+          search: tool.schema.optional(tool.schema.string()).describe('Search term to filter activations'),
+          status: tool.schema.optional(tool.schema.string()).describe('Filter by status (running, stopped, failed, completed)'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const filters = args.status ? { status: args.status as string } : undefined;
+          const response = await client.getEDAActivations(filters, args.search as string | undefined);
+          const activations = response.results.map(a => `- ${a.name} (ID: ${a.id}): status=${a.status} enabled=${a.enabled} restart=${a.restart_policy}`).join('\n');
+          return `Found ${response.count} EDA activations:\n${activations}`;
+        },
+      }),
+
+      aap_create_eda_activation: tool({
+        description: 'Create an Event-Driven Ansible activation to start listening on a rulebook (AAP 2.7+)',
+        args: {
+          name: tool.schema.string().describe('Name of the activation'),
+          rulebookId: tool.schema.number().describe('ID of the rulebook to activate'),
+          decisionEnvironmentId: tool.schema.number().describe('ID of the decision environment to use'),
+          description: tool.schema.optional(tool.schema.string()).describe('Description of the activation'),
+          projectId: tool.schema.optional(tool.schema.number()).describe('ID of the project (if rulebook is from a project)'),
+          restartPolicy: tool.schema.optional(tool.schema.string()).describe('Restart policy: on-failure, always, or never'),
+          extraVar: tool.schema.optional(tool.schema.string()).describe('Extra variables as JSON string'),
+        },
+        async execute(args) {
+          const client = getClient();
+          const activation = await client.createEDAActivation({
+            name: args.name as string,
+            rulebook: args.rulebookId as number,
+            decision_environment: args.decisionEnvironmentId as number,
+            description: args.description as string | undefined,
+            project: args.projectId as number | undefined,
+            restart_policy: (args.restartPolicy as 'on-failure' | 'always' | 'never' | undefined) ?? 'on-failure',
+            extra_var: args.extraVar as string | undefined,
+          });
+          return `EDA activation "${activation.name}" created (ID: ${activation.id}). Status: ${activation.status}`;
+        },
+      }),
     },
   };
 };

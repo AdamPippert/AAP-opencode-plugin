@@ -1,4 +1,4 @@
-import type { AAPConfig, AAPAuth, APIResponse, JobTemplate, Job, Inventory, Host, Project, Organization, Credential, LaunchJobRequest, LaunchJobResponse, FilterOptions } from './types';
+import type { AAPConfig, AAPAuth, APIResponse, JobTemplate, Job, Inventory, Host, Project, Organization, Credential, LaunchJobRequest, LaunchJobResponse, FilterOptions, Team, User, RoleDefinition, RoleTeamAssignment, RoleUserAssignment, PlatformStatus, ActivityStreamEntry, EDARulebook, EDAActivation, CreateEDAActivationRequest } from './types';
 
 export class AAPClient {
   private config: AAPConfig;
@@ -274,5 +274,79 @@ export class AAPClient {
 
   async getSettings(): Promise<Record<string, unknown>> {
     return this.makeRequest('/api/controller/v2/settings/all/');
+  }
+
+  // AAP 2.7 — Gateway v1: Platform Status
+  async getPlatformStatus(): Promise<PlatformStatus> {
+    return this.makeRequest<PlatformStatus>('/api/gateway/v1/status/');
+  }
+
+  // AAP 2.7 — Gateway v1: Teams
+  async getTeams(filters?: FilterOptions, search?: string, orderBy?: string): Promise<APIResponse<Team>> {
+    const queryString = this.buildQueryString(filters, search, orderBy);
+    return this.makeRequest<APIResponse<Team>>(`/api/gateway/v1/teams/${queryString}`);
+  }
+
+  async getTeam(id: number): Promise<Team> {
+    return this.makeRequest<Team>(`/api/gateway/v1/teams/${id}/`);
+  }
+
+  // AAP 2.7 — Gateway v1: Users
+  async getUsers(filters?: FilterOptions, search?: string, orderBy?: string): Promise<APIResponse<User>> {
+    const queryString = this.buildQueryString(filters, search, orderBy);
+    return this.makeRequest<APIResponse<User>>(`/api/gateway/v1/users/${queryString}`);
+  }
+
+  async getUser(id: number): Promise<User> {
+    return this.makeRequest<User>(`/api/gateway/v1/users/${id}/`);
+  }
+
+  // AAP 2.7 — Gateway v1: RBAC
+  async getRoleDefinitions(filters?: FilterOptions, search?: string): Promise<APIResponse<RoleDefinition>> {
+    const queryString = this.buildQueryString(filters, search);
+    return this.makeRequest<APIResponse<RoleDefinition>>(`/api/gateway/v1/role_definitions/${queryString}`);
+  }
+
+  async getRoleTeamAssignments(filters?: FilterOptions): Promise<APIResponse<RoleTeamAssignment>> {
+    const queryString = this.buildQueryString(filters);
+    return this.makeRequest<APIResponse<RoleTeamAssignment>>(`/api/gateway/v1/role_team_assignments/${queryString}`);
+  }
+
+  async getRoleUserAssignments(filters?: FilterOptions): Promise<APIResponse<RoleUserAssignment>> {
+    const queryString = this.buildQueryString(filters);
+    return this.makeRequest<APIResponse<RoleUserAssignment>>(`/api/gateway/v1/role_user_assignments/${queryString}`);
+  }
+
+  // AAP 2.7 — Gateway v1: Activity Stream
+  async getActivityStream(filters?: FilterOptions, orderBy?: string): Promise<APIResponse<ActivityStreamEntry>> {
+    const queryString = this.buildQueryString(filters, undefined, orderBy);
+    return this.makeRequest<APIResponse<ActivityStreamEntry>>(`/api/gateway/v1/activitystream/${queryString}`);
+  }
+
+  // AAP 2.7 — Event-Driven Ansible (EDA)
+  async getEDARulebooks(filters?: FilterOptions, search?: string): Promise<APIResponse<EDARulebook>> {
+    const queryString = this.buildQueryString(filters, search);
+    return this.makeRequest<APIResponse<EDARulebook>>(`/api/eda/v1/rulebooks/${queryString}`);
+  }
+
+  async getEDARulebook(id: number): Promise<EDARulebook> {
+    return this.makeRequest<EDARulebook>(`/api/eda/v1/rulebooks/${id}/`);
+  }
+
+  async getEDAActivations(filters?: FilterOptions, search?: string): Promise<APIResponse<EDAActivation>> {
+    const queryString = this.buildQueryString(filters, search);
+    return this.makeRequest<APIResponse<EDAActivation>>(`/api/eda/v1/activations/${queryString}`);
+  }
+
+  async getEDAActivation(id: number): Promise<EDAActivation> {
+    return this.makeRequest<EDAActivation>(`/api/eda/v1/activations/${id}/`);
+  }
+
+  async createEDAActivation(request: CreateEDAActivationRequest): Promise<EDAActivation> {
+    return this.makeRequest<EDAActivation>('/api/eda/v1/activations/', 'POST', request);
+  }
+
+  async deleteEDAActivation(id: number): Promise<void> {
+    return this.makeRequest<void>(`/api/eda/v1/activations/${id}/`, 'DELETE');
   }
 }
